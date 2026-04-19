@@ -1,11 +1,18 @@
 const express = require("express");
 
-const { login, logout, me, bootstrap } = require("../controllers/authController");
+const {
+  login,
+  logout,
+  me,
+  bootstrap,
+  resetDefaultPassword
+} = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
 router.post("/bootstrap", bootstrap);
+router.post("/reset-default-password", resetDefaultPassword);
 router.post("/login", login);
 router.post("/logout", logout);
 router.get("/me", protect, me);

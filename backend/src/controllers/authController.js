@@ -54,4 +54,26 @@ const bootstrap = asyncHandler(async (_req, res) => {
   return successResponse(res, { bootstrapped: true, email: result.email }, 201);
 });
 
-module.exports = { login, logout, me, bootstrap };
+const resetDefaultPassword = asyncHandler(async (_req, res) => {
+  const email = process.env.DEFAULT_ADMIN_EMAIL;
+  const password = process.env.DEFAULT_ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    res.status(500);
+    throw new Error("DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD are required");
+  }
+
+  const user = await User.findOne({ email: email.toLowerCase() });
+
+  if (!user) {
+    res.status(404);
+    throw new Error("Default admin user not found");
+  }
+
+  user.password = password;
+  await user.save();
+
+  return successResponse(res, { reset: true, email: user.email });
+});
+
+module.exports = { login, logout, me, bootstrap, resetDefaultPassword };
