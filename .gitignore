@@ -1,0 +1,9 @@
+backend/.env
+frontend/.env
+backend/node_modules/
+frontend/node_modules/
+frontend/dist/
+backend/.mongodb-data/
+backend/uploads/
+backend/*.log
+frontend/*.log
