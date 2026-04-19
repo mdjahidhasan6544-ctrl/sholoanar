@@ -1,6 +1,7 @@
 const asyncHandler = require("express-async-handler");
 
 const User = require("../models/User");
+const { seedDatabase } = require("../seed/runSeed");
 const { successResponse } = require("../utils/responses");
 const { setAuthCookie, signToken } = require("../utils/tokens");
 
@@ -41,4 +42,16 @@ const me = asyncHandler(async (req, res) => {
   return successResponse(res, { user: req.user });
 });
 
-module.exports = { login, logout, me };
+const bootstrap = asyncHandler(async (_req, res) => {
+  const userCount = await User.countDocuments();
+
+  if (userCount > 0) {
+    res.status(409);
+    throw new Error("Bootstrap is disabled after the first admin account is created");
+  }
+
+  const result = await seedDatabase();
+  return successResponse(res, { bootstrapped: true, email: result.email }, 201);
+});
+
+module.exports = { login, logout, me, bootstrap };
