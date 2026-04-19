@@ -56,7 +56,7 @@ const bootstrap = asyncHandler(async (_req, res) => {
 
 const resetDefaultPassword = asyncHandler(async (_req, res) => {
   const email = process.env.DEFAULT_ADMIN_EMAIL;
-  const password = process.env.DEFAULT_ADMIN_PASSWORD;
+  const password = _req.body?.password || process.env.DEFAULT_ADMIN_PASSWORD;
 
   if (!email || !password) {
     res.status(500);
