@@ -157,3 +157,4 @@ Uploads flow:
 - The frontend includes a fallback content set so the public site can still render while backend credentials are not configured.
 - Admin routes require backend auth and a working database connection.
 # sholoanarchobi
+# sholoanar
