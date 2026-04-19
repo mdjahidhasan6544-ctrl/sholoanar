@@ -1,4 +1,5 @@
 const asyncHandler = require("express-async-handler");
+const bcrypt = require("bcryptjs");
 
 const User = require("../models/User");
 const { seedDatabase } = require("../seed/runSeed");
@@ -70,10 +71,12 @@ const resetDefaultPassword = asyncHandler(async (_req, res) => {
     throw new Error("Default admin user not found");
   }
 
-  user.password = password;
-  await user.save();
+  const hashedPassword = await bcrypt.hash(password, 10);
+  await User.updateOne({ _id: user._id }, { $set: { password: hashedPassword } });
+  const updatedUser = await User.findById(user._id);
+  const verified = updatedUser ? await updatedUser.comparePassword(password) : false;
 
-  return successResponse(res, { reset: true, email: user.email });
+  return successResponse(res, { reset: true, email: user.email, verified });
 });
 
 module.exports = { login, logout, me, bootstrap, resetDefaultPassword };
