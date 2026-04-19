@@ -2,9 +2,11 @@ const asyncHandler = require("express-async-handler");
 const fs = require("fs/promises");
 const path = require("path");
 const sharp = require("sharp");
+const { Readable } = require("stream");
 
 const Category = require("../models/Category");
 const Image = require("../models/Image");
+const { cloudinary, isCloudinaryConfigured } = require("../config/cloudinary");
 const { successResponse } = require("../utils/responses");
 
 const uploadsDirectory = path.resolve(__dirname, "../../uploads");
@@ -14,6 +16,33 @@ async function saveLocally(buffer, fileName) {
   const filePath = path.join(uploadsDirectory, `${fileName}.jpg`);
   await fs.writeFile(filePath, buffer);
   return filePath;
+}
+
+async function uploadToCloudinary(buffer, fileName) {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: process.env.CLOUDINARY_FOLDER || "sholoana",
+        public_id: fileName,
+        resource_type: "image",
+        format: "jpg"
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(result);
+      }
+    );
+
+    Readable.from(buffer).pipe(uploadStream);
+  });
+}
+
+function isServerlessRuntime() {
+  return Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
 }
 
 const getImages = asyncHandler(async (req, res) => {
@@ -51,6 +80,11 @@ const uploadImages = asyncHandler(async (req, res) => {
     throw new Error("At least one image is required");
   }
 
+  if (isServerlessRuntime() && !isCloudinaryConfigured()) {
+    res.status(500);
+    throw new Error("Cloudinary is required for image uploads in the deployed environment");
+  }
+
   const uploaded = [];
 
   for (const [index, file] of req.files.entries()) {
@@ -62,7 +96,22 @@ const uploadImages = asyncHandler(async (req, res) => {
       .jpeg({ quality: 85, mozjpeg: true })
       .toBuffer({ resolveWithObject: true });
 
-    await saveLocally(optimized.data, localId);
+    let imageUrl;
+    let publicId;
+    let width = optimized.info.width;
+    let height = optimized.info.height;
+
+    if (isCloudinaryConfigured()) {
+      const uploadedAsset = await uploadToCloudinary(optimized.data, localId);
+      imageUrl = uploadedAsset.secure_url;
+      publicId = uploadedAsset.public_id;
+      width = uploadedAsset.width || width;
+      height = uploadedAsset.height || height;
+    } else {
+      await saveLocally(optimized.data, localId);
+      imageUrl = `${req.protocol}://${req.get("host")}/uploads/${localId}.jpg`;
+      publicId = `local:${localId}.jpg`;
+    }
 
     const image = await Image.create({
       title: title || baseName,
@@ -71,10 +120,10 @@ const uploadImages = asyncHandler(async (req, res) => {
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean),
-      imageUrl: `${req.protocol}://${req.get("host")}/uploads/${localId}.jpg`,
-      publicId: `local:${localId}.jpg`,
-      width: optimized.info.width,
-      height: optimized.info.height
+      imageUrl,
+      publicId,
+      width,
+      height
     });
 
     uploaded.push(image);
@@ -145,6 +194,8 @@ const deleteImage = asyncHandler(async (req, res) => {
     const fileName = image.publicId.slice("local:".length);
     const filePath = path.join(uploadsDirectory, path.basename(fileName));
     await fs.rm(filePath, { force: true });
+  } else if (isCloudinaryConfigured() && image.publicId) {
+    await cloudinary.uploader.destroy(image.publicId, { resource_type: "image" });
   }
 
   await image.deleteOne();

@@ -18,7 +18,7 @@ sholoana/
 - JWT admin authentication via secure cookie
 - Admin dashboard for uploads, categories, slider curation, about content, and testimonials
 - MongoDB Atlas with Mongoose models
-- Local image storage with `sharp` optimization before upload
+- `sharp` optimization before upload with Cloudinary storage for deployment-safe image hosting
 
 ## Prerequisites
 
@@ -64,6 +64,10 @@ VITE_API_URL=/api
 - `CLIENT_ORIGIN`
 - `DEFAULT_ADMIN_EMAIL`
 - `DEFAULT_ADMIN_PASSWORD`
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+- `CLOUDINARY_FOLDER`
 
 ### Frontend
 
@@ -128,9 +132,33 @@ Uploads flow:
 1. Admin uploads images from the dashboard.
 2. `multer` accepts image files in memory.
 3. `sharp` rotates, resizes, and compresses them.
-4. The backend stores optimized `.jpg` files in `backend/uploads/`.
-5. Express serves those files from `/uploads`.
+4. In deployed environments, the backend pushes optimized `.jpg` files to Cloudinary.
+5. In local development, uploads can still fall back to `backend/uploads/`.
 6. MongoDB saves image metadata and category relation.
+
+## Vercel Deployment
+
+This repo is configured for a single Vercel project from the repository root:
+
+- `frontend/` builds as the static React app
+- `backend/api/index.js` runs the Express API as a Vercel serverless function
+- `vercel.json` routes `/api/*` requests to the backend and all other routes to the frontend SPA
+
+Before deploying on Vercel, set these project environment variables:
+
+- `MONGODB_URI`
+- `JWT_SECRET`
+- `JWT_EXPIRES_IN`
+- `COOKIE_NAME`
+- `CLIENT_ORIGIN`
+- `DEFAULT_ADMIN_EMAIL`
+- `DEFAULT_ADMIN_PASSWORD`
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+- `CLOUDINARY_FOLDER`
+
+Use your Vercel frontend domain as `CLIENT_ORIGIN`.
 
 ## Main API Surface
 

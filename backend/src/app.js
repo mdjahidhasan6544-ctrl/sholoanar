@@ -14,6 +14,10 @@ const contentRoutes = require("./routes/contentRoutes");
 const { errorHandler, notFound } = require("./middleware/errorMiddleware");
 
 const app = express();
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -22,9 +26,17 @@ const generalLimiter = rateLimit({
   legacyHeaders: false
 });
 
+app.set("trust proxy", 1);
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    origin(origin, callback) {
+      if (!origin || !allowedOrigins.length || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    },
     credentials: true
   })
 );
